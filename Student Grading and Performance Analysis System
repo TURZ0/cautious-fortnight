@@ -1,0 +1,231 @@
+import pandas as pd
+import random
+import matplotlib.pyplot as plt
+
+
+csv_filename = "student_records.csv"
+
+
+# Generate random student data
+num_students = 500
+student_data = {
+    "Student ID": [f"{str(i).zfill(3)}" for i in range(1, num_students + 1)],
+    "Name": [f"Student_{i}" for i in range(1, num_students + 1)],
+    "Subject": random.choices(["Math", "English", "Science"], k=num_students),
+    "Marks": [random.randint(50, 100) for _ in range(num_students)]
+}
+
+# Create a DataFrame
+df = pd.DataFrame(student_data)
+
+df.to_csv("student_records.csv", index=False) 
+
+def calculate_grade(marks):
+    if 90 <= marks <= 100:
+        return "A"
+    elif 80 <= marks < 90:
+        return "B"
+    elif 70 <= marks < 80:
+        return "C"
+    else:
+        return "F"
+
+student_data["Grade"] = [calculate_grade(marks) for marks in student_data["Marks"]]
+
+def add_student(student_id, name, subject, marks):
+    global df
+    grade = calculate_grade(marks)
+    new_record = {"Student ID": student_id, "Name": name, "Subject": subject, "Marks": marks, "Grade": grade}
+    df = pd.concat([df, pd.DataFrame([new_record])], ignore_index=True)
+    print(f"Student {name} added successfully!")
+
+
+def delete_student(student_id):
+    global df
+    if student_id in df["Student ID"].values:
+        df = df[df["Student ID"] != student_id]
+        print(f"Student ID {student_id} deleted successfully!")
+    else:
+        print(f"Student ID {student_id} not found!")
+
+
+def update_student(student_id, subject=None, marks=None):
+    global df
+    if student_id in df["Student ID"].values:
+        if subject:
+            df.loc[df["Student ID"] == student_id, "Subject"] = subject
+        if marks is not None:
+            df.loc[df["Student ID"] == student_id, "Marks"] = marks
+            df.loc[df["Student ID"] == student_id, "Grade"] = calculate_grade(marks)
+        print(f"Student ID {student_id} updated successfully!")
+    else:
+        print(f"Student ID {student_id} not found!")
+
+
+def save_records():
+    backup = input("Save backup? (y/n): ").strip().lower() == 'y'
+    if backup:
+        df.to_csv(f"backup_{csv_filename}", index=False)
+    df.to_csv(csv_filename, index=False)
+    print(f"Records saved to {csv_filename}")
+
+
+
+while True:
+    print("\nOptions:")
+    print("1. Add Student")
+    print("2. Update Student")
+    print("3. Delete Student")
+    print("4. View Records")
+    print("5. Save record")
+    print("6. Search for a student by ID or Name")
+    print("7. Filter students by Grade")
+    print("8. Show a list of students who failed")
+    print("9. Bar Chart: Average Marks Per Subject")
+    print("10. Pie Chart: Grade Distribution")
+    print("11. Line Graph: Student Marks in a Chosen Subject")
+    print("12. Calculate Average Marks for Each Subject")
+    print("13. Identify Top and Lowest Scorers in Each Subject")
+    print("14. Determine Pass Percentage of the Class")
+    print("15. Exit")
+    
+    choice =input("Enter your choice: ")
+    
+    if choice == "1":
+        student_id = input("Enter Student ID: ")
+        name = input("Enter Name: ")
+        subject = input("Enter Subject: ")
+        marks = int(input("Enter Marks: "))
+        add_student(student_id, name, subject, marks)
+    elif choice == "2":
+        student_id = input("Enter Student ID to update: ")
+        subject = input("Enter new Subject (leave blank to skip): ") or None
+        marks = input("Enter new Marks (leave blank to skip): ")
+        marks = int(marks) if marks else None
+        update_student(student_id, subject, marks)
+    elif choice == "3":
+        student_id = input("Enter Student ID to delete: ")
+        delete_student(student_id)
+    elif choice == "4":
+        print("\nCurrent Records:")
+        print(df)
+    elif choice == "5":
+        save_records()
+
+    elif choice == "6":
+        search_value = input("Enter Student ID to search: ")
+        search_students(search_value)
+    elif choice == "7":
+        grade = input("Enter the Grade to filter (e.g., A, B, C, F): ").strip().upper()
+        filter_students_by_grade(grade)
+    elif choice == "8":
+        students_failed()
+
+    elif choice == "9":
+        plot_average_marks()
+    elif choice == "10":
+        plot_grade_distribution()
+    elif choice == "11":
+        plot_student_marks_line()
+
+    elif choice == "12":
+        calculate_average_marks()
+    elif choice == "13":
+        find_top_and_lowest_scorers()
+    elif choice == "14":
+        calculate_pass_percentage()
+    elif choice == "15":
+        print("Exiting the program.")
+        break
+    else:
+        print("Invalid choice. Please try again.")
+    
+
+def search_students(query):
+    result = df[(df["Student ID"] == query) | (df["Name"].str.contains(query, case=False))]
+    print(result if not result.empty else f"No records found for '{query}'")
+
+# 2. Filter students based on grades
+def filter_students_by_grade(grade):
+    grade_ranges = {
+        "A": (90, 100),
+        "B": (80, 89),
+        "C": (70, 79),
+        "F": (0, 69),
+    }
+    if grade not in grade_ranges:
+        return "Invalid grade. Choose A, B, C or F."
+    min_mark, max_mark = grade_ranges[grade]
+    return [student for student in student_data if min_mark <= student["Marks"] <= max_mark]
+
+# 3. List students who failed (Marks < 70)
+def list_failed_students():
+    return [student for student in student_data if student["Marks"] < 70]
+
+
+def plot_average_marks():
+    average_marks = df.groupby("Subject")["Marks"].mean()
+    average_marks.plot(kind="bar", color="skyblue", figsize=(8, 5))
+    plt.title("Average Marks Per Subject")
+    plt.xlabel("Subjects")
+    plt.ylabel("Average Marks")
+    plt.xticks(rotation=45)
+    plt.grid(axis="y", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+    plt.show()
+
+# Function to display a pie chart showing the grade distribution
+def plot_grade_distribution():
+    grade_counts = df["Grade"].value_counts()
+    grade_counts.plot(kind="pie", autopct="%1.1f%%", startangle=90, colors=["#4CAF50", "#FF9800", "#2196F3", "#F44336"])
+    plt.title("Grade Distribution")
+    plt.ylabel("")  # Remove y-axis label for aesthetics
+    plt.show()
+
+# Function to create a line graph of student marks in a chosen subject
+def plot_student_marks_line():
+    subject = input("Enter the subject to plot marks (e.g., Math, English, Science): ").strip()
+    subject_data = df[df["Subject"].str.lower() == subject.lower()]
+    if subject_data.empty:
+        print(f"No data found for subject '{subject}'.")
+        return
+    subject_data = subject_data.sort_values("Marks")
+    plt.plot(subject_data["Student ID"], subject_data["Marks"], marker="o", linestyle="-", color="purple")
+    plt.title(f"Marks of Students in {subject}")
+    plt.xlabel("Student ID")
+    plt.ylabel("Marks")
+    plt.xticks(rotation=45)
+    plt.grid(axis="both", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+    plt.show()
+
+
+
+
+def calculate_average_marks():
+    average_marks = df.groupby("Subject")["Marks"].mean()
+    print("\nAverage Marks for Each Subject:")
+    print(average_marks)
+
+# Function to identify the top scorer and lowest scorer in each subject
+def find_top_and_lowest_scorers():
+    print("\nTop Scorer and Lowest Scorer in Each Subject:")
+    grouped = df.groupby("Subject")
+    for subject, group in grouped:
+        top_scorer = group.loc[group["Marks"].idxmax()]
+        lowest_scorer = group.loc[group["Marks"].idxmin()]
+        print(f"\nSubject: {subject}")
+        print(f"  Top Scorer: {top_scorer['Name']} (Marks: {top_scorer['Marks']})")
+        print(f"  Lowest Scorer: {lowest_scorer['Name']} (Marks: {lowest_scorer['Marks']})")
+
+# Function to determine the pass percentage of the class
+def calculate_pass_percentage():
+    total_students = len(df)
+    passed_students = len(df[df["Grade"] != "F"])
+    pass_percentage = (passed_students / total_students) * 100
+    print(f"\nPass Percentage of the Class: {pass_percentage:.2f}%")
+
+
+
+
+
